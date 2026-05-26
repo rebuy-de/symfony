@@ -11,6 +11,7 @@
 
 namespace Symfony\Component\Form\Tests\Extension\Validator\Constraints;
 
+use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\CallbackTransformer;
@@ -24,6 +25,7 @@ use Symfony\Component\Form\Extension\Validator\ValidatorExtension;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\Form\FormFactoryBuilder;
 use Symfony\Component\Form\FormFactoryInterface;
+use Symfony\Component\Form\Tests\Fixtures\FormWithGroupSequenceType;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Validator\Constraints\Collection;
 use Symfony\Component\Validator\Constraints\Expression;
@@ -466,6 +468,39 @@ class FormValidatorFunctionalTest extends TestCase
         $this->assertCount(0, $form->get('field1')->getErrors());
         $this->assertFalse($form->get('field2')->isValid());
         $this->assertCount(1, $form->get('field2')->getErrors());
+    }
+
+    #[TestWith([true])]
+    #[TestWith([false])]
+    public function testGroupSequence(bool $useValidationGroupSequenceFromForm)
+    {
+        $this->validator = Validation::createValidatorBuilder()
+            ->enableAttributeMapping()
+            ->getValidator();
+
+        $this->formFactory = (new FormFactoryBuilder())
+            ->addExtension(new ValidatorExtension($this->validator))
+            ->addType(new FormWithGroupSequenceType($useValidationGroupSequenceFromForm))
+            ->getFormFactory();
+
+        $form = $this->formFactory->create(FormWithGroupSequenceType::class);
+
+        $form->submit([
+            'firstName' => 'foo',
+            'lastName' => 'bar',
+            'child' => [
+                'a' => '1234',
+            ],
+        ]);
+
+        $this->assertTrue($form->isSubmitted());
+        $this->assertFalse($form->isValid());
+        $this->assertCount(0, $form->getErrors());
+        $this->assertTrue($form->get('firstName')->isValid());
+        $this->assertCount(0, $form->get('firstName')->getErrors());
+        $this->assertTrue($form->get('lastName')->isValid());
+        $this->assertCount(0, $form->get('lastName')->getErrors());
+        $this->assertCount(1, $form->get('child')->get('a')->getErrors());
     }
 }
 
